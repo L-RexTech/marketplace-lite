@@ -4,14 +4,15 @@ package com.dgliger.marketplace.product.controller;
 import com.dgliger.marketplace.common.dto.ApiResponse;
 import com.dgliger.marketplace.product.dto.ProductRequest;
 import com.dgliger.marketplace.product.dto.ProductResponse;
+import com.dgliger.marketplace.product.security.UserPrincipal;
 import com.dgliger.marketplace.product.service.ProductService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Arrays;
 import java.util.List;
 
 @RestController
@@ -41,19 +42,17 @@ public class ProductController {
 
     @GetMapping("/seller")
     public ResponseEntity<ApiResponse<List<ProductResponse>>> getSellerProducts(
-            @RequestHeader("X-User-Id") Long sellerId) {
-        List<ProductResponse> products = productService.getSellerProducts(sellerId);
+            @AuthenticationPrincipal UserPrincipal principal) {
+        List<ProductResponse> products = productService.getSellerProducts(principal.getUserId());
         return ResponseEntity.ok(ApiResponse.success(products));
     }
 
     @PostMapping
     public ResponseEntity<ApiResponse<ProductResponse>> createProduct(
             @Valid @RequestBody ProductRequest request,
-            @RequestHeader("X-User-Id") Long userId,
-            @RequestHeader("X-User-Roles") String rolesHeader) {
+            @AuthenticationPrincipal UserPrincipal principal) {
 
-        List<String> roles = parseRoles(rolesHeader);
-        ProductResponse product = productService.createProduct(request, userId, roles);
+        ProductResponse product = productService.createProduct(request, principal.getUserId(), principal.getRoles());
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Product created successfully", product));
     }
@@ -62,22 +61,18 @@ public class ProductController {
     public ResponseEntity<ApiResponse<ProductResponse>> updateProduct(
             @PathVariable Long id,
             @Valid @RequestBody ProductRequest request,
-            @RequestHeader("X-User-Id") Long userId,
-            @RequestHeader("X-User-Roles") String rolesHeader) {
+            @AuthenticationPrincipal UserPrincipal principal) {
 
-        List<String> roles = parseRoles(rolesHeader);
-        ProductResponse product = productService.updateProduct(id, request, userId, roles);
+        ProductResponse product = productService.updateProduct(id, request, principal.getUserId(), principal.getRoles());
         return ResponseEntity.ok(ApiResponse.success("Product updated successfully", product));
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<ApiResponse<Void>> deleteProduct(
             @PathVariable Long id,
-            @RequestHeader("X-User-Id") Long userId,
-            @RequestHeader("X-User-Roles") String rolesHeader) {
+            @AuthenticationPrincipal UserPrincipal principal) {
 
-        List<String> roles = parseRoles(rolesHeader);
-        productService.deleteProduct(id, userId, roles);
+        productService.deleteProduct(id, principal.getUserId(), principal.getRoles());
         return ResponseEntity.ok(ApiResponse.success("Product deleted successfully", null));
     }
 
@@ -92,11 +87,5 @@ public class ProductController {
     public ResponseEntity<Boolean> checkStock(@PathVariable Long id, @RequestParam Integer quantity) {
         boolean available = productService.checkStock(id, quantity);
         return ResponseEntity.ok(available);
-    }
-
-    private List<String> parseRoles(String rolesHeader) {
-        // Remove brackets and split
-        String cleaned = rolesHeader.replaceAll("[\\\\[\\\\]]", "");
-        return Arrays.asList(cleaned.split(",\\\\s*"));
     }
 }

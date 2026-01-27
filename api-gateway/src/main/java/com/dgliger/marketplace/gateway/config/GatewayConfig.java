@@ -18,11 +18,9 @@ public class GatewayConfig {
     @Bean
     public RouteLocator customRouteLocator(RouteLocatorBuilder builder) {
         return builder.routes()
-                // ============================================
-                // AUTH SERVICE ROUTES (Port 8081)
-                // ============================================
 
-                // Public auth endpoints - NO JWT FILTER (Most specific first!)
+                //AUTH SERVICE ROUTES (Port 8081)
+                // Public auth endpoints - NO JWT FILTER
                 .route("auth-register", r -> r
                         .path("/api/auth/register")
                         .uri("http://localhost:8081"))
@@ -48,10 +46,7 @@ public class GatewayConfig {
                         .filters(f -> f.filter(jwtAuthenticationFilter.apply(new JwtAuthenticationFilter.Config())))
                         .uri("http://localhost:8081"))
 
-                // ============================================
-                // PRODUCT SERVICE ROUTES (Port 8082)
-                // ============================================
-
+                //PRODUCT SERVICE ROUTES (Port 8082)
                 // Public product endpoints - GET requests only
                 .route("product-list", r -> r
                         .path("/api/products")
@@ -68,21 +63,14 @@ public class GatewayConfig {
                         .and().method("GET")
                         .uri("http://localhost:8082"))
 
-                .route("product-seller", r -> r
-                        .path("/api/products/seller/{sellerId}")
-                        .and().method("GET")
-                        .uri("http://localhost:8082"))
-
-                // Protected product endpoints - POST, PUT, DELETE
+                // Protected product endpoints - POST, PUT, DELETE, and seller endpoint
                 .route("product-protected", r -> r
                         .path("/api/products/**")
                         .filters(f -> f.filter(jwtAuthenticationFilter.apply(new JwtAuthenticationFilter.Config())))
                         .uri("http://localhost:8082"))
 
-                // ============================================
-                // ORDER SERVICE ROUTES (Port 8083)
-                // ============================================
 
+                //ORDER SERVICE ROUTES (Port 8083)
                 // All order endpoints are protected
                 .route("order-service", r -> r
                         .path("/api/orders/**")

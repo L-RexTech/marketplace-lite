@@ -1,19 +1,19 @@
 package com.dgliger.marketplace.order.controller;
 
 
-
 import com.dgliger.marketplace.common.dto.ApiResponse;
 import com.dgliger.marketplace.order.dto.OrderRequest;
 import com.dgliger.marketplace.order.dto.OrderResponse;
 import com.dgliger.marketplace.order.enums.OrderStatus;
+import com.dgliger.marketplace.order.security.UserPrincipal;
 import com.dgliger.marketplace.order.service.OrderService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Arrays;
 import java.util.List;
 
 @RestController
@@ -26,25 +26,26 @@ public class OrderController {
     @PostMapping
     public ResponseEntity<ApiResponse<OrderResponse>> createOrder(
             @Valid @RequestBody OrderRequest request,
-            @RequestHeader("X-User-Id") Long userId) {
+            @AuthenticationPrincipal UserPrincipal principal) {
 
-        OrderResponse order = orderService.createOrder(request, userId);
+        OrderResponse order = orderService.createOrder(request, principal.getUserId());
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Order created successfully", order));
     }
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<OrderResponse>>> getUserOrders(
-            @RequestHeader("X-User-Id") Long userId,
-            @RequestHeader("X-User-Roles") String rolesHeader) {
+            @AuthenticationPrincipal UserPrincipal principal) {
 
-        List<String> roles = parseRoles(rolesHeader);
+        List<String> roles = principal.getRoles();
 
         if (roles.contains("ADMIN")) {
+            // ADMIN sees all orders
             List<OrderResponse> orders = orderService.getAllOrders(roles);
             return ResponseEntity.ok(ApiResponse.success(orders));
         } else {
-            List<OrderResponse> orders = orderService.getUserOrders(userId);
+            // SELLER and BUYER see their own orders
+            List<OrderResponse> orders = orderService.getUserOrders(principal.getUserId());
             return ResponseEntity.ok(ApiResponse.success(orders));
         }
     }
@@ -52,11 +53,9 @@ public class OrderController {
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<OrderResponse>> getOrderById(
             @PathVariable Long id,
-            @RequestHeader("X-User-Id") Long userId,
-            @RequestHeader("X-User-Roles") String rolesHeader) {
+            @AuthenticationPrincipal UserPrincipal principal) {
 
-        List<String> roles = parseRoles(rolesHeader);
-        OrderResponse order = orderService.getOrderById(id, userId, roles);
+        OrderResponse order = orderService.getOrderById(id, principal.getUserId(), principal.getRoles());
         return ResponseEntity.ok(ApiResponse.success(order));
     }
 
@@ -64,16 +63,9 @@ public class OrderController {
     public ResponseEntity<ApiResponse<OrderResponse>> updateOrderStatus(
             @PathVariable Long id,
             @RequestParam OrderStatus status,
-            @RequestHeader("X-User-Id") Long userId,
-            @RequestHeader("X-User-Roles") String rolesHeader) {
+            @AuthenticationPrincipal UserPrincipal principal) {
 
-        List<String> roles = parseRoles(rolesHeader);
-        OrderResponse order = orderService.updateOrderStatus(id, status, userId, roles);
+        OrderResponse order = orderService.updateOrderStatus(id, status, principal.getUserId(), principal.getRoles());
         return ResponseEntity.ok(ApiResponse.success("Order status updated successfully", order));
-    }
-
-    private List<String> parseRoles(String rolesHeader) {
-        String cleaned = rolesHeader.replaceAll("[\\\\[\\\\]]", "");
-        return Arrays.asList(cleaned.split(",\\\\s*"));
     }
 }

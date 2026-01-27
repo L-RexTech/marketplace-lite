@@ -1,4 +1,4 @@
-package com.dgliger.marketplace.auth.security;
+package com.dgliger.marketplace.order.security;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -9,8 +9,6 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
@@ -23,23 +21,18 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
     @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
-    }
-
-    @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // Public endpoints - Register and Login
-                        .requestMatchers(HttpMethod.POST, "/api/auth/register").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
-                        // Get current user - any authenticated user
-                        .requestMatchers(HttpMethod.GET, "/api/auth/me").authenticated()
-                        // Get user by ID - ADMIN only
-                        .requestMatchers(HttpMethod.GET, "/api/auth/users/**").hasRole("ADMIN")
+                        // Create Order - ADMIN, SELLER, BUYER (authenticated users)
+                        .requestMatchers(HttpMethod.POST, "/api/orders").hasAnyRole("ADMIN", "SELLER", "BUYER")
+                        // Get Orders - ADMIN, SELLER, BUYER (own filtering done in service)
+                        .requestMatchers(HttpMethod.GET, "/api/orders").hasAnyRole("ADMIN", "SELLER", "BUYER")
+                        .requestMatchers(HttpMethod.GET, "/api/orders/{id}").hasAnyRole("ADMIN", "SELLER", "BUYER")
+                        // Update Order Status - ADMIN only
+                        .requestMatchers(HttpMethod.PATCH, "/api/orders/*/status").hasRole("ADMIN")
                         // All other requests require authentication
                         .anyRequest().authenticated()
                 )

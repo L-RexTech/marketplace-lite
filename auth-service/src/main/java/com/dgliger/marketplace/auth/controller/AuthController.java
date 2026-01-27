@@ -5,12 +5,14 @@ import com.dgliger.marketplace.auth.dto.AuthResponse;
 import com.dgliger.marketplace.auth.dto.LoginRequest;
 import com.dgliger.marketplace.auth.dto.RegisterRequest;
 import com.dgliger.marketplace.auth.dto.UserDto;
+import com.dgliger.marketplace.auth.security.UserPrincipal;
 import com.dgliger.marketplace.auth.service.AuthService;
 import com.dgliger.marketplace.auth.service.UserService;
 import com.dgliger.marketplace.common.dto.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -34,8 +36,8 @@ public class AuthController {
     }
 
     @GetMapping("/me")
-    public ResponseEntity<ApiResponse<UserDto>> getCurrentUser(@RequestHeader("X-User-Email") String email) {
-        UserDto user = userService.getUserByEmail(email);
+    public ResponseEntity<ApiResponse<UserDto>> getCurrentUser(@AuthenticationPrincipal UserPrincipal principal) {
+        UserDto user = userService.getUserByEmail(principal.getEmail());
         return ResponseEntity.ok(ApiResponse.success(user));
     }
 
