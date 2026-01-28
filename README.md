@@ -2,6 +2,72 @@
 
 A microservices-based e-commerce marketplace built with Spring Boot 3.2.1 and Java 17.
 
+##  Prerequisites & Requirements
+
+Before you begin, ensure you have the following installed on your local machine:
+
+- **Java Development Kit (JDK) 17**: Required for compilation and runtime.
+- **Apache Maven 3.8+**: To manage dependencies and build the project.
+- **MySQL 8.0+**: Primary relational database.
+- **Git**: To clone the repository.
+- **An IDE** (IntelliJ IDEA, Eclipse, or VS Code): With Lombok plugin support enabled.
+- **Terminal/CLI**: To run build commands and curl requests.
+
+## 🚀 Installation & Setup
+
+### 1. Clone the Repository
+```bash
+git clone https://github.com/your-username/marketplace-lite.git
+cd marketplace-lite
+```
+
+### 2. Database Configuration
+
+Create the necessary databases in your MySQL instance:
+```sql
+CREATE DATABASE marketplace_auth;
+CREATE DATABASE marketplace_product;
+CREATE DATABASE marketplace_order;
+```
+
+> [!IMPORTANT]  
+> Update the `src/main/resources/application.properties` (or `application.yml`) in each service with your MySQL username and password if they differ from the defaults.
+
+### 3. Build the Project
+
+Run the Maven wrapper to install dependencies and build all modules (including the common-lib):
+```bash
+./mvnw clean install
+```
+
+### 4. Running the Services
+
+To get the marketplace fully operational, start the services in the following recommended order:
+
+1. **Auth Service**: Handles security context
+2. **Product & Order Services**: Core business logic
+3. **API Gateway**: The entry point for all traffic
+
+**Command syntax:**
+```bash
+./mvnw spring-boot:run -pl <service-name>
+```
+
+**Example commands:**
+```bash
+# Auth Service
+./mvnw spring-boot:run -pl auth-service
+
+# Product Service
+./mvnw spring-boot:run -pl product-service
+
+# Order Service
+./mvnw spring-boot:run -pl order-service
+
+# API Gateway (start last)
+./mvnw spring-boot:run -pl api-gateway
+```
+
 ## Architecture
 
 ```
