@@ -1,7 +1,8 @@
 package com.dgliger.marketplace.order.service;
 
 
-
+import com.dgliger.marketplace.common.event.OrderCreatedEvent;
+import com.dgliger.marketplace.common.event.OrderStatusChangedEvent;
 import com.dgliger.marketplace.common.exception.BusinessException;
 import com.dgliger.marketplace.common.exception.ResourceNotFoundException;
 import com.dgliger.marketplace.order.client.ProductClient;
@@ -11,6 +12,7 @@ import com.dgliger.marketplace.order.dto.OrderResponse;
 import com.dgliger.marketplace.order.entity.Order;
 import com.dgliger.marketplace.order.entity.OrderItem;
 import com.dgliger.marketplace.order.enums.OrderStatus;
+import com.dgliger.marketplace.order.kafka.OrderEventProducer;
 import com.dgliger.marketplace.order.mapper.OrderMapper;
 import com.dgliger.marketplace.order.repository.OrderRepository;
 import lombok.RequiredArgsConstructor;
@@ -18,7 +20,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -27,6 +31,7 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final ProductClient productClient;
     private final OrderMapper orderMapper;
+    private final OrderEventProducer orderEventProducer;
 
     @Transactional
     public OrderResponse createOrder(OrderRequest request, Long userId) {
@@ -60,13 +65,18 @@ public class OrderService {
             totalAmount = totalAmount.add(subtotal);
 
             order.addItem(orderItem);
-
-            // Update stock
-            productClient.updateStock(itemDto.getProductId(), itemDto.getQuantity());
         }
 
         order.setTotalAmount(totalAmount);
         Order savedOrder = orderRepository.save(order);
+
+        // Publish Kafka events for stock updates
+        for (OrderItem item : savedOrder.getItems()) {
+            orderEventProducer.sendStockUpdateEvent(item.getProductId(), item.getQuantity(), savedOrder.getId());
+        }
+
+        // Publish order created event
+        publishOrderCreatedEvent(savedOrder);
 
         return orderMapper.toResponse(savedOrder);
     }
@@ -96,8 +106,19 @@ public class OrderService {
         Order order = orderRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Order", "id", id));
 
+        String previousStatus = order.getStatus().name();
         order.setStatus(status);
         Order updatedOrder = orderRepository.save(order);
+
+        // Publish order status changed event
+        OrderStatusChangedEvent event = OrderStatusChangedEvent.builder()
+                .orderId(updatedOrder.getId())
+                .userId(updatedOrder.getUserId())
+                .previousStatus(previousStatus)
+                .newStatus(status.name())
+                .updatedAt(LocalDateTime.now())
+                .build();
+        orderEventProducer.sendOrderStatusChangedEvent(event);
 
         return orderMapper.toResponse(updatedOrder);
     }
@@ -109,5 +130,27 @@ public class OrderService {
 
         List<Order> orders = orderRepository.findAll();
         return orderMapper.toResponseList(orders);
+    }
+
+    private void publishOrderCreatedEvent(Order order) {
+        List<OrderCreatedEvent.OrderItemEvent> itemEvents = order.getItems().stream()
+                .map(item -> OrderCreatedEvent.OrderItemEvent.builder()
+                        .productId(item.getProductId())
+                        .productName(item.getProductName())
+                        .quantity(item.getQuantity())
+                        .price(item.getPrice())
+                        .build())
+                .collect(Collectors.toList());
+
+        OrderCreatedEvent event = OrderCreatedEvent.builder()
+                .orderId(order.getId())
+                .userId(order.getUserId())
+                .totalAmount(order.getTotalAmount())
+                .shippingAddress(order.getShippingAddress())
+                .items(itemEvents)
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        orderEventProducer.sendOrderCreatedEvent(event);
     }
 }

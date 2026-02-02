@@ -107,4 +107,13 @@ public class ProductService {
                 .orElseThrow(() -> new ResourceNotFoundException("Product", "id", productId));
         return product.getStock() >= quantity;
     }
+
+    @Transactional
+    public void increaseStock(Long productId, Integer quantity) {
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new ResourceNotFoundException("Product", "id", productId));
+
+        product.setStock(product.getStock() + quantity);
+        productRepository.save(product);
+    }
 }
